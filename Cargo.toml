@@ -1,0 +1,2 @@
+[workspace]
+members = ["fr32", "hashers", "proofs-core", "proofs-porep", "sha2raw"]
