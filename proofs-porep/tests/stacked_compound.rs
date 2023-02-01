@@ -47,6 +47,47 @@ fn test_stacked_compound_poseidon_top_8_4_2() {
     test_stacked_compound::<DiskTree<PoseidonHasher, U8, U4, U2>>();
 }
 
+#[test]
+#[ignore]
+fn test_groth_setup_top_8_4_2() {
+    test_groth_setup::<DiskTree<PoseidonHasher, U8, U4, U2>>();
+}
+
+fn test_groth_setup<Tree: 'static + MerkleTreeTrait>() {
+    let nodes = 8 * get_base_tree_count::<Tree>();
+
+    let degree = BASE_DEGREE;
+    let expansion_degree = EXP_DEGREE;
+    let num_layers = 2;
+    let layer_challenges = LayerChallenges::new(num_layers, 1);
+    let partition_count = 1;
+
+    let mut rng = XorShiftRng::from_seed(TEST_SEED);
+
+    let arbitrary_porep_id = [55; 32];
+    let setup_params = compound_proof::SetupParams {
+        vanilla_params: SetupParams {
+            nodes,
+            degree,
+            expansion_degree,
+            porep_id: arbitrary_porep_id,
+            layer_challenges,
+            api_version: ApiVersion::V1_1_0,
+        },
+        partitions: Some(partition_count),
+        priority: false,
+    };
+    
+
+    let public_params = StackedCompound::<Tree, Sha256Hasher>::setup(&setup_params).expect("setup failed");
+
+    let _blank_groth_params = <StackedCompound<Tree, Sha256Hasher> as CompoundProof<
+        StackedDrg<'_, Tree, Sha256Hasher>,
+        _,
+    >>::groth_params(Some(&mut rng), &public_params.vanilla_params)
+    .expect("failed to generate groth params");
+}
+
 fn test_stacked_compound<Tree: 'static + MerkleTreeTrait>() {
     let nodes = 8 * get_base_tree_count::<Tree>();
 
