@@ -5,7 +5,7 @@ use bellperson::{
         aggregate::{
             aggregate_proofs, verify_aggregate_proof, AggregateProof, ProverSRS, VerifierSRS,
         },
-        create_random_proof_batch, create_random_proof_batch_in_priority, verify_proofs_batch,
+        create_random_proof_batch, create_random_proof_batch_in_priority, 
         PreparedVerifyingKey,
     },
     Circuit,
@@ -13,9 +13,6 @@ use bellperson::{
 use blstrs::{Bls12, Scalar as Fr};
 use log::info;
 use rand::{rngs::OsRng, RngCore};
-use rayon::prelude::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
 
 use crate::{
     error::Result,
@@ -236,7 +233,7 @@ where
     {
         // - Thread 1: Calculate MillerLoop(\sum Accum_Gamma)
         let ml_g = &mut ml_g;
-        s.spawn(move |_| {
+        {
             let scalar_getter = |idx: usize| -> <E::Fr as ff::PrimeField>::Repr {
                 if idx == 0 {
                     return accum_y.to_repr();
@@ -268,11 +265,11 @@ where
 
             // MillerLoop(acc_g_psi, vk.gamma)
             *ml_g = E::multi_miller_loop(&[(&acc_g_psi.to_affine(), &pvk.gamma_g2)]);
-        });
+        };
 
         // - Thread 2: Calculate MillerLoop(Accum_Delta)
         let ml_d = &mut ml_d;
-        s.spawn(move |_| {
+        {
             let points: Vec<_> = proofs.iter().map(|p| p.c).collect();
 
             // Accum_Delta
@@ -286,11 +283,11 @@ where
             };
 
             *ml_d = E::multi_miller_loop(&[(&acc_d.to_affine(), &pvk.delta_g2)]);
-        });
+        };
 
         // - Thread 3: Calculate MillerLoop(Accum_AB)
         let acc_ab = &mut acc_ab;
-        s.spawn(move |_| {
+        {
             let accum_ab_mls: Vec<_> = proofs
                 .par_iter()
                 .zip(rand_z_repr.par_iter())
@@ -310,7 +307,7 @@ where
             for accum in accum_ab_mls.iter().skip(1).take(num_proofs) {
                 *acc_ab += accum;
             }
-        });
+        };
 
         // Thread 4(current): Calculate Y^-Accum_Y
         // -Accum_Y
