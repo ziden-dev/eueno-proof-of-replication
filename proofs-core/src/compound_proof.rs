@@ -139,15 +139,10 @@ where
     // verify is equivalent to ProofScheme::verify.
     fn verify<'b>(
         public_params: &PublicParams<'a, S>,
-        inputs: &S::PublicInputs,
+        public_inputs: &S::PublicInputs,
         multi_proof: &MultiProof<'b>,
         requirements: &S::Requirements,
-    ) -> Result<bool> 
-    where
-        E: MultiMillerLoop,
-        <E::Fr as PrimeField>::Repr: Sync + Copy,
-        R: rand::RngCore,
-    {
+    ) -> Result<bool> {
         ensure!(
             multi_proof.circuit_proofs.len() == Self::partition_count(public_params),
             "Inconsistent inputs"
@@ -166,166 +161,12 @@ where
 
         let inputs: Vec<_> = (0..multi_proof.circuit_proofs.len())
             .into_par_iter()
-            .map(|k| Self::generate_public_inputs(inputs, vanilla_public_params, Some(k)))
+            .map(|k| Self::generate_public_inputs(public_inputs, vanilla_public_params, Some(k)))
             .collect::<Result<_>>()?;
 
         let proofs: Vec<_> = multi_proof.circuit_proofs.iter().collect();
-        debug_assert_eq!(proofs.len(), inputs.len());
-
-    for pub_input in inputs {
-        if (pub_input.len() + 1) != pvk.ic.len() {
-            return Err(SynthesisError::MalformedVerifyingKey);
-        }
-    }
-
-    let num_inputs = inputs[0].len();
-    let num_proofs = proofs.len();
-
-    if num_proofs < 2 {
-        return verify_proof(pvk, proofs[0], &inputs[0]);
-    }
-
-    let proof_num = proofs.len();
-
-    // Choose random coefficients for combining the proofs.
-    let mut rand_z_repr: Vec<_> = Vec::with_capacity(proof_num);
-    let mut rand_z: Vec<_> = Vec::with_capacity(proof_num);
-    let mut accum_y = E::Fr::zero();
-
-    for _ in 0..proof_num {
-        use rand::Rng;
-
-        let t: u128 = rng.gen();
-
-        let mut repr = E::Fr::zero().to_repr();
-        let mut repr_u64s = le_bytes_to_u64s(repr.as_ref());
-        assert!(repr_u64s.len() > 1);
-
-        repr_u64s[0] = (t & (-1i64 as u128) >> 64) as u64;
-        repr_u64s[1] = (t >> 64) as u64;
-
-        for (i, limb) in repr_u64s.iter().enumerate() {
-            let start = i * 8;
-            let stop = start + 8;
-            repr.as_mut()[start..stop].copy_from_slice(&limb.to_le_bytes());
-        }
-
-        let fr = E::Fr::from_repr(repr).unwrap();
-        let repr = fr.to_repr();
-
-        // calculate sum
-        accum_y.add_assign(&fr);
-        // store FrRepr
-        rand_z_repr.push(repr);
-        // store Fr
-        rand_z.push(fr);
-    }
-
-    // MillerLoop(\sum Accum_Gamma)
-    let mut ml_g = <E as MultiMillerLoop>::Result::default();
-    // MillerLoop(Accum_Delta)
-    let mut ml_d = <E as MultiMillerLoop>::Result::default();
-    // MillerLoop(Accum_AB)
-    let mut acc_ab = <E as MultiMillerLoop>::Result::default();
-    // Y^-Accum_Y
-    let mut y = <E as Engine>::Gt::identity();
-
-    let accum_y = &accum_y;
-    let rand_z_repr = &rand_z_repr;
-
-    {
-        // - Thread 1: Calculate MillerLoop(\sum Accum_Gamma)
-        let ml_g = &mut ml_g;
-        s.spawn(move |_| {
-            let scalar_getter = |idx: usize| -> <E::Fr as ff::PrimeField>::Repr {
-                if idx == 0 {
-                    return accum_y.to_repr();
-                }
-                let idx = idx - 1;
-
-                // \sum(z_j * aj,i)
-                let mut cur_sum = rand_z[0];
-                cur_sum.mul_assign(&inputs[0][idx]);
-
-                for (pi_mont, mut rand_mont) in
-                    inputs.iter().zip(rand_z.iter().copied()).skip(1)
-                {
-                    // z_j * a_j,i
-                    let pi_mont = &pi_mont[idx];
-                    rand_mont.mul_assign(pi_mont);
-                    cur_sum.add_assign(&rand_mont);
-                }
-
-                cur_sum.to_repr()
-            };
-
-            // \sum Accum_Gamma
-            let acc_g_psi = multiscalar::par_multiscalar::<_, E::G1Affine>(
-                &multiscalar::ScalarList::Getter(scalar_getter, num_inputs + 1),
-                &pvk.multiscalar,
-                256,
-            );
-
-            // MillerLoop(acc_g_psi, vk.gamma)
-            *ml_g = E::multi_miller_loop(&[(&acc_g_psi.to_affine(), &pvk.gamma_g2)]);
-        });
-
-        // - Thread 2: Calculate MillerLoop(Accum_Delta)
-        let ml_d = &mut ml_d;
-        s.spawn(move |_| {
-            let points: Vec<_> = proofs.iter().map(|p| p.c).collect();
-
-            // Accum_Delta
-            let acc_d: E::G1 = {
-                let pre = multiscalar::precompute_fixed_window::<E::G1Affine>(&points, 1);
-                multiscalar::multiscalar::<E::G1Affine>(
-                    rand_z_repr,
-                    &pre,
-                    std::mem::size_of::<<E::Fr as PrimeField>::Repr>() * 8,
-                )
-            };
-
-            *ml_d = E::multi_miller_loop(&[(&acc_d.to_affine(), &pvk.delta_g2)]);
-        });
-
-        // - Thread 3: Calculate MillerLoop(Accum_AB)
-        let acc_ab = &mut acc_ab;
-        s.spawn(move |_| {
-            let accum_ab_mls: Vec<_> = proofs
-                .par_iter()
-                .zip(rand_z_repr.par_iter())
-                .map(|(proof, rand)| {
-                    // [z_j] pi_j,A
-                    let mul_a = proof.a.mul(E::Fr::from_repr(*rand).unwrap());
-
-                    // -pi_j,B
-                    let cur_neg_b = -proof.b.to_curve();
-
-                    E::multi_miller_loop(&[(&mul_a.to_affine(), &cur_neg_b.to_affine().into())])
-                })
-                .collect();
-
-            // Accum_AB = mul_j(ml((zj*proof_aj), -proof_bj))
-            *acc_ab = accum_ab_mls[0];
-            for accum in accum_ab_mls.iter().skip(1).take(num_proofs) {
-                *acc_ab += accum;
-            }
-        });
-
-        // Thread 4(current): Calculate Y^-Accum_Y
-        // -Accum_Y
-        let accum_y_neg = -*accum_y;
-
-        // Y^-Accum_Y
-        y = pvk.alpha_g1_beta_g2 * accum_y_neg;
-    };
-
-    let mut ml_all = acc_ab;
-    ml_all += ml_d;
-    ml_all += ml_g;
-
-    let actual = ml_all.final_exponentiation();
-    Ok(actual == y)
+        let res = verify_proofs_batch(pvk, &mut OsRng, &proofs, &inputs)?;
+        Ok(res)
     }
 
     /// Efficiently verify multiple proofs.
