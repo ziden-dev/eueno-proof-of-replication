@@ -154,13 +154,13 @@ where
             "Number of replica nodes must match"
         );
 
-        let replica_nodes: Vec<_> = proof
+        let replica_nodes = proof
             .replica_nodes
             .iter()
             .map(|node| Some(node.data.into()))
             .collect();
 
-        let replica_nodes_paths: Vec<_> = proof
+        let replica_nodes_paths = proof
             .replica_nodes
             .iter()
             .map(|node| node.proof.as_options())
@@ -182,7 +182,7 @@ where
 
         let replica_id = public_inputs.replica_id;
 
-        let replica_parents: Vec<_> = proof
+        let replica_parents = proof
             .replica_parents
             .iter()
             .map(|parents| {
@@ -193,11 +193,11 @@ where
             })
             .collect();
 
-        let replica_parents_paths: Vec<Vec<_>> = proof
+        let replica_parents_paths = proof
             .replica_parents
             .iter()
             .map(|parents| {
-                let p: Vec<_> = parents
+                let p = parents
                     .iter()
                     .map(|(_, parent)| parent.proof.as_options())
                     .collect();
@@ -205,13 +205,13 @@ where
             })
             .collect();
 
-        let data_nodes: Vec<_> = proof
+        let data_nodes = proof
             .nodes
             .iter()
             .map(|node| Some(node.data.into()))
             .collect();
 
-        let data_nodes_paths: Vec<_> = proof
+        let data_nodes_paths = proof
             .nodes
             .iter()
             .map(|node| node.proof.as_options())
