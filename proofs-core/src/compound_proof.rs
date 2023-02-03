@@ -13,7 +13,11 @@ use bellperson::{
 use blstrs::{Bls12, Scalar as Fr};
 use log::info;
 use rand::{rngs::OsRng, RngCore};
+use std::ops::{AddAssign, Mul, MulAssign};
 
+use ff::{Field, PrimeField};
+use group::{prime::PrimeCurveAffine, Curve, Group};
+use pairing::{Engine, MillerLoopResult, MultiMillerLoop};
 use crate::{
     error::Result,
     multi_proof::MultiProof,
