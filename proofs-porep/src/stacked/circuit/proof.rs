@@ -351,3 +351,13 @@ fn generate_inclusion_inputs<Tree: 'static + MerkleTreeTrait>(
 
     PoRCompound::<Tree>::generate_public_inputs(&pub_inputs, por_params, k)
 }
+
+impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedCompound<Tree, G>{
+    pub fn generate_public_inputs_for_test(
+        pub_in: &<StackedDrg<'_, Tree, G> as ProofScheme<'_>>::PublicInputs,
+        pub_params: &<StackedDrg<'_, Tree, G> as ProofScheme<'_>>::PublicParams,
+        k: Option<usize>,
+    ) -> Result<Vec<Fr>> {
+        Self::generate_public_inputs(pub_in, pub_params, k)
+    }
+}

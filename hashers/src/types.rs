@@ -116,7 +116,6 @@ pub trait HashFunction<T: Domain>: Clone + Debug + Send + Sync + LightAlgorithm<
     where
         CS: ConstraintSystem<Fr>;
 }
-
 pub trait Hasher: Clone + Debug + Eq + Default + Send + Sync {
     type Domain: Domain + LightHashable<Self::Function> + AsRef<Self::Domain>;
     type Function: HashFunction<Self::Domain>;
