@@ -1,9 +1,7 @@
-use std::{io::Cursor, ptr::read, time::SystemTime};
+use std::{io::Cursor, time::SystemTime};
 
 use bellperson::{
-    groth16::VerifyingKey,
-    util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem},
-    Circuit,
+    groth16::VerifyingKey
 };
 use blstrs::{Bls12, Scalar as Fr};
 use ff::Field;
