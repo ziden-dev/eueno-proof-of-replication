@@ -1,0 +1,71 @@
+[package]
+name = "stacked-drg"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
+
+[dependencies]
+cosmwasm-std = { version = "1.1.0", default-features = false, features = ["abort"]}
+cosmwasm-storage = "1.1.0"
+cw-storage-plus = "0.16.0"
+cw2 = "0.16.0"
+schemars = "0.8.1"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+json = "0.12.4"
+thiserror = { version = "1.0.23" }
+getrandom = { version = "0.2.3", features = ["js"] }
+rand = "0.8"    
+bellperson = {path = "bellperson"}
+blstrs = "0.6.0"
+generic-array = "0.14.4"
+merkletree = "0.22.0"
+ff = "0.12.0"
+tempfile = "3"
+pairing = "0.22.0"
+group = "0.12.0"
+ec-gpu-gen = { version = "0.5.1" }
+serde_json = "1.0.59"
+anyhow = "1.0.23"
+sha2 = "0.10.2"
+rand_chacha = "0.3"
+byteorder = "1"
+hex = "0.4.2"
+num-bigint = "0.4.3"
+num-traits = "0.2"
+blake2b_simd = "1.0.0"
+
+[target."cfg(target_arch = \"aarch64\")".dependencies]
+sha2 = { version = "0.10.2", features = ["compress", "asm"] }
+[target."cfg(not(target_arch = \"aarch64\"))".dependencies]
+sha2 = { version = "0.10.2", features = ["compress"] }
+
+[dev-dependencies]
+rand = "0.8"
+rand_xorshift = "0.3.0"
+criterion = "0.3.2"
+glob = "0.3.0"
+fil_logger = "0.1.6"
+cw-multi-test = "0.16.0"
+cosmwasm-schema = "1.1.0"
+
+[features]
+default = ["groth16"]
+groth16 = []
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
