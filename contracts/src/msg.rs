@@ -1,4 +1,3 @@
-use cosmwasm_std::Uint256;
 use schemars::JsonSchema;
 use serde::{Serialize, Deserialize};
 
@@ -16,7 +15,7 @@ pub enum ExecuteMsg {
 
 pub enum QueryMsg {
     // GetCount returns the current count as a json-encoded number
-    
+    VerifyProofJson {vk_raw: Vec<u8>, proof_raw: Vec<u8>, public_inputs_json: String}
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

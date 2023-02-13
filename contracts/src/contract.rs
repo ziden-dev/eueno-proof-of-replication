@@ -73,27 +73,29 @@ pub mod execute {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-
+        QueryMsg::VerifyProofJson {vk_raw, proof_raw, public_inputs_json} => to_binary(&query::verify_proof_json(deps, vk_raw, proof_raw, public_inputs_json)?)
     }
 }
 
 pub mod query { 
+
     use super::*;
     pub fn verify_proof_json(
         deps: Deps, 
         vk_raw: Vec<u8>,
         proof_raw: Vec<u8>,
         public_inputs_json: String,
-    ) -> Result<bool, SynthesisError>
+    ) -> StdResult<bool>
     {
         let vk = VerifyingKey::<Bls12>::read(Cursor::new(vk_raw)).unwrap();
         let proof = Proof::<Bls12>::read(Cursor::new(proof_raw)).unwrap();
         let public_inputs: PublicInputs<PoseidonDomain, Sha256Domain> = serde_json::from_str(&public_inputs_json).unwrap();
         let pvk = prepare_single_verifying_key(&vk);
-        let setup_params_json = SETUP_PARAMS.load(deps.storage);
-        let setup_params = serde_json::from_str(&setup_params_json).unwrap();
+        let setup_params_json = SETUP_PARAMS.load(deps.storage).unwrap();
+        let setup_params: VanillaParams = serde_json::from_str(&setup_params_json).unwrap();
+        let public_params = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::setup(&setup_params).unwrap();
         let inputs = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::generate_public_inputs(&public_inputs, &public_params, Some(0)).unwrap();
         verify_proof(&pvk, &proof, &inputs)
     }
@@ -138,15 +140,12 @@ pub fn verify_proof<E>(
     pvk: &SinglePreparedVerifyingKey<E>,
     proof: &Proof<E>,
     public_inputs: &[E::Fr],
-) -> Result<bool, SynthesisError>
+) -> StdResult<bool>
 where
     E: MultiMillerLoop,
     <<E as Engine>::Fr as PrimeField>::Repr: Sync,
 {
-    if (public_inputs.len() + 1) != pvk.ic.len() {
-        return Err(SynthesisError::MalformedVerifyingKey);
-    }
-
+    assert_eq!((public_inputs.len() + 1), pvk.ic.len(), "Inconsistent inputs");
     // The original verification equation is:
     // A * B = alpha * beta + inputs * gamma + C * delta
     // ... however, we rearrange it so that it is:
@@ -506,7 +505,7 @@ pub struct VerifierStackedDrg<H: Domain, G: Domain> {
 }
 
 impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
-    pub fn setup(sp: &SetupParams) -> Result<PublicParams<H>, SynthesisError> {
+    pub fn setup(sp: &VanillaParams) -> Result<PublicParams<H>, SynthesisError> {
         let graph = VerifierStackedBucketGraph::<H>::new_stacked(
             sp.nodes,
             sp.degree,
@@ -632,7 +631,7 @@ pub type Index = u64;
 pub type FeistelPrecomputed = (Index, Index, Index);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetupParams {
+pub struct VanillaParams {
     // Number of nodes
     pub nodes: usize,
 
@@ -644,6 +643,13 @@ pub struct SetupParams {
     pub porep_id: [u8; 32],
     pub layer_challenges: LayerChallenges,
     pub api_version: ApiVersion,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SetupParams {
+    pub vanilla_params: VanillaParams,
+    pub partitions: Option<usize>,
+    pub priority: bool,
 }
 
 #[derive(Debug, Default)]
@@ -1176,10 +1182,10 @@ impl AsRef<Sha256Domain> for Sha256Domain {
 }
 
 impl Sha256Domain {
-    fn trim_to_fr32(&mut self) {
-        // strip last two bits, to ensure result is in Fr.
-        self.0[31] &= 0b0011_1111;
-    }
+    // fn trim_to_fr32(&mut self) {
+    //     // strip last two bits, to ensure result is in Fr.
+    //     self.0[31] &= 0b0011_1111;
+    // }
 }
 
 impl AsRef<[u8]> for Sha256Domain {
