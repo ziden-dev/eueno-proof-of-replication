@@ -7,7 +7,7 @@ use hashers::{Hasher, PoseidonArity};
 use fr32::bytes_into_fr_repr_safe;
 use generic_array::typenum::Unsigned;
 use merkletree::merkle::get_merkle_tree_row_count;
-use rand::{Rng, SeedableRng};
+use rand_chacha::rand_core::{SeedableRng, RngCore};
 use rand_chacha::ChaCha8Rng;
 use sha2::{Digest, Sha256};
 
@@ -169,7 +169,7 @@ impl<H: Hasher> Graph<H> for BucketGraph<H> {
                 };
 
                 for parent in other_drg_parents.iter_mut().take(m_prime) {
-                    let bucket_index = (rng.gen::<u64>() % n_buckets) + 1;
+                    let bucket_index = (rng.next_u64() % n_buckets) + 1;
                     let largest_distance_in_bucket = min(metagraph_node, 1 << bucket_index);
                     let smallest_distance_in_bucket = max(2, largest_distance_in_bucket >> 1);
 
@@ -178,7 +178,7 @@ impl<H: Hasher> Graph<H> for BucketGraph<H> {
                         largest_distance_in_bucket - smallest_distance_in_bucket + 1;
 
                     let distance =
-                        smallest_distance_in_bucket + (rng.gen::<u64>() % n_distances_in_bucket);
+                        smallest_distance_in_bucket + (rng.next_u64() % n_distances_in_bucket);
 
                     let metagraph_parent = metagraph_node - distance;
 

@@ -1,25 +1,18 @@
 use std::cmp::{max, min};
-use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use anyhow::ensure;
-use hashers::{Domain, PoseidonArity};
-use fr32::bytes_into_fr_repr_safe;
-use generic_array::typenum::Unsigned;
-use merkletree::merkle::get_merkle_tree_row_count;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use ark_bls12_381::Fr;
+use ark_ff::PrimeField;
 use sha2::{Digest, Sha256};
+use rand_chacha::rand_core::{SeedableRng, RngCore};
+use rand_chacha::ChaCha8Rng;
 
-#[cfg(test)]
-use hashers::Hasher;
-
-use crate::parameter_cache::ParameterSetMetadata;
+use anyhow::Result;
+use crate::domain::Domain;
 use crate::{
-    api_version::ApiVersion,
     crypto::{derive_porep_domain_seed, DRSAMPLE_DST},
-    error::Result,
-    util::{data_at_node_offset, NODE_SIZE},
+    utils::{data_at_node_offset, NODE_SIZE, ApiVersion},
     PoRepID,
 };
 
@@ -31,17 +24,12 @@ pub const PARALLEL_MERKLE: bool = true;
 pub const BASE_DEGREE: usize = 6;
 
 /// A depth robust graph.
-pub trait Graph<D: Domain>: Debug + Clone + PartialEq + Eq {
-    type Key: Debug;
+pub trait Graph<D: Domain>: Clone + PartialEq + Eq {
+    type Key;
 
     /// Returns the expected size of all nodes in the graph.
     fn expected_size(&self) -> usize {
         self.size() * NODE_SIZE
-    }
-
-    /// Returns the merkle tree depth.
-    fn merkle_tree_depth<U: 'static + PoseidonArity>(&self) -> u64 {
-        graph_height::<U>(self.size()) as u64
     }
 
     /// Returns a sorted list of all parents of this node. The parents may be repeated.
@@ -81,33 +69,14 @@ pub trait Graph<D: Domain>: Debug + Clone + PartialEq + Eq {
     ) -> Result<Self::Key>;
 }
 
-pub fn graph_height<U: Unsigned>(number_of_leafs: usize) -> usize {
-    get_merkle_tree_row_count(number_of_leafs, U::to_usize())
-}
-
 /// Bucket sampling algorithm.
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, PartialEq, Eq, Copy)]
 pub struct BucketGraph<D: Domain> {
     nodes: usize,
     base_degree: usize,
     seed: [u8; 28],
     api_version: ApiVersion,
     _d: PhantomData<D>,
-}
-
-impl<D: Domain> ParameterSetMetadata for BucketGraph<D> {
-    fn identifier(&self) -> String {
-        // NOTE: Seed is not included because it does not influence parameter generation.
-        format!(
-            "verifier_drgraph::BucketGraph{{size: {}; degree: {}}}",
-            self.nodes,
-            self.degree()
-        )
-    }
-
-    fn sector_size(&self) -> u64 {
-        (self.nodes * NODE_SIZE) as u64
-    }
 }
 
 impl<D: Domain> Graph<D> for BucketGraph<D> {
@@ -133,7 +102,7 @@ impl<D: Domain> Graph<D> for BucketGraph<D> {
         }
 
         let hash = hasher.finalize();
-        Ok(bytes_into_fr_repr_safe(hash.as_ref()).into())
+        Ok(Fr::from_le_bytes_mod_order(hash.as_ref()).into())
     }
 
     #[inline]
@@ -171,7 +140,7 @@ impl<D: Domain> Graph<D> for BucketGraph<D> {
                 };
 
                 for parent in other_drg_parents.iter_mut().take(m_prime) {
-                    let bucket_index = (rng.gen::<u64>() % n_buckets) + 1;
+                    let bucket_index = (rng.next_u64() % n_buckets) + 1;
                     let largest_distance_in_bucket = min(metagraph_node, 1 << bucket_index);
                     let smallest_distance_in_bucket = max(2, largest_distance_in_bucket >> 1);
 
@@ -180,7 +149,7 @@ impl<D: Domain> Graph<D> for BucketGraph<D> {
                         largest_distance_in_bucket - smallest_distance_in_bucket + 1;
 
                     let distance =
-                        smallest_distance_in_bucket + (rng.gen::<u64>() % n_distances_in_bucket);
+                        smallest_distance_in_bucket + (rng.next_u64() % n_distances_in_bucket);
 
                     let metagraph_parent = metagraph_node - distance;
 
@@ -200,6 +169,7 @@ impl<D: Domain> Graph<D> for BucketGraph<D> {
             }
         }
     }
+
 
     #[inline]
     fn size(&self) -> usize {
@@ -251,168 +221,4 @@ pub fn derive_drg_seed(porep_id: PoRepID) -> [u8; 28] {
     let raw_seed = derive_porep_domain_seed(DRSAMPLE_DST, porep_id);
     drg_seed.copy_from_slice(&raw_seed[..28]);
     drg_seed
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use hashers::{
-        blake2s::{Blake2sHasher, Blake2sDomain}, poseidon::PoseidonHasher, sha256::{Sha256Hasher, Sha256Domain},
-    };
-    use generic_array::typenum::{U0, U2, U4, U8};
-    use memmap2::{MmapMut, MmapOptions};
-    use merkletree::store::StoreConfig;
-
-    use crate::merkle::{
-        create_base_merkle_tree, DiskStore, MerkleProofTrait, MerkleTreeTrait, MerkleTreeWrapper,
-    };
-
-    // Create and return an object of MmapMut backed by in-memory copy of data.
-    pub fn mmap_from(data: &[u8]) -> MmapMut {
-        let mut mm = MmapOptions::new()
-            .len(data.len())
-            .map_anon()
-            .expect("Failed to create memory map");
-        mm.copy_from_slice(data);
-        mm
-    }
-
-    fn graph_bucket<D: Domain>() {
-        // These PoRepIDs do not correspond to the small-sized graphs used in
-        // the tests. However, they are sufficient to distinguish legacy vs new
-        // behavior of parent ordering.
-        let porep_id = |id: u8| {
-            let mut porep_id = [0u8; 32];
-            porep_id[0] = id;
-
-            porep_id
-        };
-
-        let legacy_porep_id = porep_id(0);
-        let new_porep_id = porep_id(5);
-
-        graph_bucket_aux::<D>(legacy_porep_id, ApiVersion::V1_0_0);
-        graph_bucket_aux::<D>(new_porep_id, ApiVersion::V1_1_0);
-    }
-
-    fn graph_bucket_aux<D: Domain>(porep_id: PoRepID, api_version: ApiVersion) {
-        let degree = BASE_DEGREE;
-
-        for &size in &[4, 16, 256, 2048] {
-            let g = BucketGraph::<D>::new(size, degree, 0, porep_id, api_version)
-                .expect("bucket graph new failed");
-
-            assert_eq!(g.size(), size, "wrong nodes count");
-
-            let mut parents = vec![0; degree];
-            g.parents(0, &mut parents).expect("parents failed");
-            assert_eq!(parents, vec![0; degree as usize]);
-            parents = vec![0; degree];
-            g.parents(1, &mut parents).expect("parents failed");
-            assert_eq!(parents, vec![0; degree as usize]);
-
-            for i in 1..size {
-                let mut pa1 = vec![0; degree];
-                g.parents(i, &mut pa1).expect("parents failed");
-                let mut pa2 = vec![0; degree];
-                g.parents(i, &mut pa2).expect("parents failed");
-
-                assert_eq!(pa1.len(), degree);
-                assert_eq!(pa1, pa2, "different parents on the same node");
-
-                let mut p1 = vec![0; degree];
-                g.parents(i, &mut p1).expect("parents failed");
-                let mut p2 = vec![0; degree];
-                g.parents(i, &mut p2).expect("parents failed");
-
-                for parent in p1 {
-                    // TODO: fix me
-                    assert_ne!(i, parent as usize, "self reference found");
-                }
-
-                match api_version {
-                    ApiVersion::V1_0_0 => {
-                        assert_eq!(
-                            i - 1,
-                            pa1[degree - 1] as usize,
-                            "immediate predecessor was not last DRG parent"
-                        );
-                    }
-                    ApiVersion::V1_1_0 => {
-                        assert_eq!(
-                            i - 1,
-                            pa1[0] as usize,
-                            "immediate predecessor was not first parent"
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn graph_bucket_sha256() {
-        graph_bucket::<Sha256Domain>();
-    }
-
-    #[test]
-    fn graph_bucket_blake2s() {
-        graph_bucket::<Blake2sDomain>();
-    }
-
-    fn gen_proof<H: 'static + Hasher, U: 'static + PoseidonArity>(config: Option<StoreConfig>) {
-        let leafs = 64;
-        let porep_id = [1; 32];
-        let g = BucketGraph::<H::Domain>::new(leafs, BASE_DEGREE, 0, porep_id, ApiVersion::V1_1_0)
-            .expect("bucket graph new failed");
-        let data = vec![2u8; NODE_SIZE * leafs];
-
-        let mmapped = &mmap_from(&data);
-        let tree =
-            create_base_merkle_tree::<MerkleTreeWrapper<H, DiskStore<H::Domain>, U, U0, U0>>(
-                config,
-                g.size(),
-                mmapped,
-            )
-            .expect("failed to build tree");
-        let proof = tree.gen_proof(2).expect("failed to gen proof");
-
-        assert!(proof.verify());
-    }
-
-    #[test]
-    fn gen_proof_poseidon_binary() {
-        gen_proof::<PoseidonHasher, U2>(None);
-    }
-
-    #[test]
-    fn gen_proof_sha256_binary() {
-        gen_proof::<Sha256Hasher, U2>(None);
-    }
-
-    #[test]
-    fn gen_proof_blake2s_binary() {
-        gen_proof::<Blake2sHasher, U2>(None);
-    }
-
-    #[test]
-    fn gen_proof_poseidon_quad() {
-        gen_proof::<PoseidonHasher, U4>(None);
-    }
-
-    #[test]
-    fn gen_proof_sha256_quad() {
-        gen_proof::<Sha256Hasher, U4>(None);
-    }
-
-    #[test]
-    fn gen_proof_blake2s_quad() {
-        gen_proof::<Blake2sHasher, U4>(None);
-    }
-
-    #[test]
-    fn gen_proof_poseidon_oct() {
-        gen_proof::<PoseidonHasher, U8>(None);
-    }
 }

@@ -17,7 +17,6 @@ pub mod compound_proof;
 pub mod crypto;
 pub mod data;
 pub mod drgraph;
-pub mod verifier_drgraph;
 pub mod error;
 pub mod gadgets;
 pub mod measurements;

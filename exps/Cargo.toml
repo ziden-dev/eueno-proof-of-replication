@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 proofs-core = { path = "../proofs-core", default-features = false}
 proofs-porep = { path = "../proofs-porep" }
+converter = {path = "../converter"}
+contract-auxiliaries ={ path = "../contract-auxiliaries"}
 sha2raw = { path = "../sha2raw"}
 hashers = { path = "../hashers", default-features = false, features = ["poseidon", "sha256"]}
 bellperson = "0.24.0"

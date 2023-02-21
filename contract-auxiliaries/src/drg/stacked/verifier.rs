@@ -1,24 +1,24 @@
+use crate::{domain::Domain, drg::drgraph::Graph};
+
 use super::{
     verifier_graph::VerifierStackedBucketGraph,
     verifier_params::{PublicParams, SetupParams},
-    ChallengeRequirements, PublicInputs,
+    challenges::ChallengeRequirements, verifier_params::PublicInputs,
 };
-use anyhow::ensure;
-use blstrs::Scalar as Fr;
-use fr32::u64_into_fr;
-use hashers::Domain;
-use proofs_core::{error::Result, verifier_drgraph::Graph};
+use anyhow::{ensure, Result};
+use ark_groth16::{Proof, PreparedVerifyingKey, VerifyingKey, prepare_verifying_key, verify_proof};
 use std::marker::PhantomData;
+use ark_bls12_381::{Fr, Bls12_381};
 
 /// The inputs that are necessary for the verifier to verify the proof.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MerkleTreePublicInputs {
     /// The challenge, which leaf to prove.
     pub challenge: usize,
 }
 
 /// The parameters shared between the prover and verifier.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MerkleTreePublicParams {
     /// How many leaves the underlying merkle tree has.
     pub leaves: usize,
@@ -55,13 +55,22 @@ fn generate_inclusion_inputs(
     generate_merkletree_public_inputs(&pub_inputs, por_params, k)
 }
 
-#[derive(Debug)]
 pub struct VerifierStackedDrg<H: Domain, G: Domain> {
     _h: PhantomData<H>,
     _g: PhantomData<G>,
+    pvk: PreparedVerifyingKey<Bls12_381>
 }
 
 impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
+    pub fn new(vk: &VerifyingKey<Bls12_381>) -> Self{
+        let pvk = prepare_verifying_key(vk);
+        Self {
+            pvk,
+            _h: Default::default(),
+            _g: Default::default()
+        }
+    }
+
     pub fn setup(sp: &SetupParams) -> Result<PublicParams<H>> {
         let graph = VerifierStackedBucketGraph::<H>::new_stacked(
             sp.nodes,
@@ -149,7 +158,7 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
                 )?);
             }
 
-            inputs.push(u64_into_fr(challenge as u64));
+            inputs.push(Fr::from(challenge as u64));
 
             // Inclusion Proof: encoded node in comm_r_last
             inputs.extend(generate_inclusion_inputs(&por_params, challenge, k)?);
@@ -159,5 +168,28 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
         }
 
         Ok(inputs)
+    }
+
+    // verify is equivalent to ProofScheme::verify.
+    pub fn verify(
+        &self,
+        public_params: &PublicParams<H>,
+        public_inputs: &PublicInputs<H, G>,
+        proof: &Proof<Bls12_381>,
+        requirements: &ChallengeRequirements,
+    ) -> Result<bool> {
+
+        if !Self::satisfies_requirements(
+            &public_params,
+            requirements,
+            1,
+        ) {
+            return Ok(false);
+        }
+
+        let inputs: Vec<_> = Self::generate_public_inputs(public_inputs, public_params, Some(0))?;
+
+        let res = verify_proof(&self.pvk,  proof, &inputs)?;
+        Ok(res)
     }
 }
