@@ -3,7 +3,7 @@ export const initStackedDrg = () => {
     return {
         input: {
             wasm: true,
-            wasm_file: "porep/contracts/stacked-drg/artifacts/stacked-drg.wasm",
+            wasm_file: "../contract/artifacts/contract.wasm",
             memo: "Stacked Drg",
             code_id: 0,
         },

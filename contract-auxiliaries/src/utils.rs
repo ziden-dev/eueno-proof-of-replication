@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, Eq, PartialEq)]
+use serde::Deserialize;
+
+#[derive(Copy, Clone, Eq, PartialEq, Deserialize)]
 pub enum ApiVersion {
     V1_0_0,
     V1_1_0,

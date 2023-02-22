@@ -9,7 +9,7 @@ use super::challenges::LayerChallenges;
 
 use super::verifier_graph::VerifierStackedBucketGraph;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct SetupParams {
     // Number of nodes
     pub nodes: usize,

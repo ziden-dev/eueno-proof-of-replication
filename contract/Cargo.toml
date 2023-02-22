@@ -1,5 +1,5 @@
 [package]
-name = "stacked-drg"
+name = "contract"
 version = "0.1.0"
 edition = "2021"
 
@@ -27,7 +27,7 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 json = "0.12.4"
 thiserror = { version = "1.0.23" }
 serde_json = "1.0.59"
-contract-auxiliaries = {path = "../../packages/contract-auxiliaries"}
+contract-auxiliaries = {path = "../contract-auxiliaries"}
 
 [dev-dependencies]
 cw-multi-test = "0.16.0"
