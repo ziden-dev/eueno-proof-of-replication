@@ -1,0 +1,21 @@
+[package]
+name = "contract-auxiliaries"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+ark-groth16 = "0.3.0"
+ark-bls12-381 = "0.3.0"
+ark-ff = "0.3.0"
+ark-ec = "0.3.0"
+anyhow = "1.0.34"
+sha2 = "0.10.2"
+generic-array = "0.14.4"
+blake2b_simd = "1.0.0"
+num-bigint = "0.4.3"
+num-traits = "0.2"
+rand_chacha = "0.3"
+cosmwasm-std = { version = "1.1.0", default-features = false, features = ["abort"]}
