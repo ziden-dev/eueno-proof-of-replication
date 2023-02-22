@@ -83,8 +83,8 @@ pub mod query {
             &contract_auxiliaries::drg::stacked::challenges::ChallengeRequirements {
                 minimum_challenges: 1,
             },
-        );
-        Ok(true)
+        ).unwrap();
+        Ok(verified)
     }
 }
 

@@ -9,7 +9,6 @@ use anyhow::{ensure, Result};
 use ark_groth16::{Proof, PreparedVerifyingKey, VerifyingKey, prepare_verifying_key, verify_proof};
 use std::marker::PhantomData;
 use ark_bls12_381::{Fr, Bls12_381};
-use cosmwasm_std::StdResult;
 
 /// The inputs that are necessary for the verifier to verify the proof.
 #[derive(Clone)]
@@ -178,7 +177,7 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
         public_inputs: &PublicInputs<H, G>,
         proof: &Proof<Bls12_381>,
         requirements: &ChallengeRequirements,
-    ) -> StdResult<bool> {
+    ) -> Result<bool> {
 
         if !Self::satisfies_requirements(
             &public_params,
@@ -188,9 +187,9 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
             return Ok(false);
         }
 
-        let inputs: Vec<_> = Self::generate_public_inputs(public_inputs, public_params, Some(0)).unwrap();
+        let inputs: Vec<_> = Self::generate_public_inputs(public_inputs, public_params, Some(0))?;
 
-        let res = verify_proof(&self.pvk,  proof, &inputs).unwrap();
+        let res = verify_proof(&self.pvk,  proof, &inputs)?;
         Ok(res)
     }
 }
