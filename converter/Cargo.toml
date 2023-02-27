@@ -15,3 +15,4 @@ bellperson = "0.24.0"
 blstrs = "0.6.0"
 anyhow = "1.0.34"
 proofs-porep = { path = "../proofs-porep" }
+paired = "0.21.0"
