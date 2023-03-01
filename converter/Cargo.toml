@@ -16,3 +16,8 @@ blstrs = "0.6.0"
 anyhow = "1.0.34"
 proofs-porep = { path = "../proofs-porep" }
 paired = "0.21.0"
+fff = "0.2.0"
+groupy = "0.3.0"
+rand = { version = "0.8", default-features = false, features = ["std"]}
+rand_core = { version = "0.6", default-features=false, features = ["getrandom"] }
+getrandom = { version = "0.2", features = ["js"] }
