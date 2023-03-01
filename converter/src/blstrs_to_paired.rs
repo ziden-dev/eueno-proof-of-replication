@@ -1,6 +1,9 @@
-use blstrs::{Bls12, G1Affine, G2Affine, Scalar as Fr};
+use blstrs::{G1Affine, G2Affine, Scalar as Fr};
 use paired::bls12_381::{G1Affine as PairedG1Affine, G2Affine as PairedG2Affine, Fr as PairedFr, 
-    G2Compressed};
+    G2Compressed, FrRepr, G2Uncompressed, Fq, FqRepr};
+use fff::{PrimeField, PrimeFieldRepr, Field};
+use std::io::Read;
+use groupy::{EncodedPoint, GroupDecodingError, CurveAffine};
 
 pub fn convert_paired_fr(scalar: Fr) -> PairedFr{  
     let scalar_be = scalar.to_bytes_be();
