@@ -17,5 +17,6 @@ generic-array = "0.14.4"
 blake2b_simd = "1.0.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
-getrandom = {version = "0.2.8", features = ["js"]}
+rand_core = {version = "0.6", default-features=false, features = ["getrandom"] }
+getrandom = { version = "0.2", features = ["js"] }
 rand_chacha = "0.3"
