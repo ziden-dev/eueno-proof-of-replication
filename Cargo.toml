@@ -1,2 +1,2 @@
 [workspace]
-members = ["fr32", "hashers", "proofs-core", "proofs-porep", "sha2raw", "contract-auxiliaries", "exps", "converter", "contract"]
+members = ["contract-auxiliaries", "contract"]
