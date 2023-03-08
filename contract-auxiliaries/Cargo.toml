@@ -7,10 +7,12 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-ark-groth16 = "0.3.0"
-ark-bls12-381 = "0.3.0"
-ark-ff = "0.3.0"
-ark-ec = "0.3.0"
+ark-ec = { version = "^0.3.0", default-features = false }
+ark-groth16 = { version = "^0.3.0", default-features = false }
+ark-ff = { version = "^0.3.0", default-features = false }
+ark-std = { version = "^0.3.0", default-features = false }
+ark-bls12-381 = { version = "^0.3.0", default-features = false, features = [ "curve" ] }
+ark-crypto-primitives = { version = "^0.3.0", features = ["r1cs"], default-features = false }
 anyhow = "1.0.34"
 sha2 = "0.10.2"
 generic-array = "0.14.4"

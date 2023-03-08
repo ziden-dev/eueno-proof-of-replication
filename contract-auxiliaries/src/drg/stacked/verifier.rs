@@ -189,7 +189,7 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
 
         let inputs: Vec<_> = Self::generate_public_inputs(public_inputs, public_params, Some(0))?;
 
-        let res = verify_proof(&self.pvk,  proof, &inputs)?;
+        let res = verify_proof(&self.pvk,  proof, &inputs).unwrap();
         Ok(res)
     }
 }
