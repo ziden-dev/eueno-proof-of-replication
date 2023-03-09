@@ -79,6 +79,17 @@ pub struct BucketGraph<D: Domain> {
     _d: PhantomData<D>,
 }
 
+#[inline]
+fn log2_ceil(num: u64) -> u64{
+    let mut result = 0;
+    let mut cur = num;
+    while cur > 0 {
+        cur /= 2;
+        result += 1;
+    }
+    result
+} 
+
 impl<D: Domain> Graph<D> for BucketGraph<D> {
     type Key = D;
 
@@ -132,7 +143,8 @@ impl<D: Domain> Graph<D> for BucketGraph<D> {
                 let m_prime = m - 1;
                 // Large sector sizes require that metagraph node indexes are `u64`.
                 let metagraph_node = node as u64 * m_prime as u64;
-                let n_buckets = (metagraph_node as f64).log2().ceil() as u64;
+        
+                let n_buckets = log2_ceil(metagraph_node);
 
                 let (predecessor_index, other_drg_parents) = match self.api_version {
                     ApiVersion::V1_0_0 => (m_prime, &mut parents[..]),
