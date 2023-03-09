@@ -1,4 +1,6 @@
 
+use std::fmt::Debug;
+
 use ark_bls12_381::Fr;
 use serde::{Serialize, de::DeserializeOwned};
 pub mod sha256;
@@ -28,6 +30,7 @@ pub trait Domain:
     + Serialize
     + DeserializeOwned
     + Element
+    + Debug
 {
     #[allow(clippy::wrong_self_convention)]
     fn into_bytes(&self) -> Vec<u8>;

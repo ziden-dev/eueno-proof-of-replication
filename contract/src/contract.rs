@@ -34,16 +34,18 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SetSetupParams {setup_params_json} => execute::set_setup_params(deps, info, setup_params_json)
+        ExecuteMsg::SetSetupParams {setup_params} => execute::set_setup_params(deps, info, setup_params)
     }
 }
 
 pub mod execute {
 
+    use contract_auxiliaries::drg::stacked::VerifierSetupParams;
+
     use super::*;
-    pub fn set_setup_params(deps: DepsMut, info: MessageInfo, setup_params_json: String) -> Result<Response, ContractError>{
+    pub fn set_setup_params(deps: DepsMut, info: MessageInfo, setup_params: VerifierSetupParams) -> Result<Response, ContractError>{
         if info.sender == OWNER.load(deps.storage).unwrap() {
-            SETUP_PARAMS.save(deps.storage, &setup_params_json)?;
+            SETUP_PARAMS.save(deps.storage, &setup_params)?;
             Ok(Response::default())
         }
         else {
@@ -55,25 +57,25 @@ pub mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::VerifyProofJson {vk_raw, proof_raw, public_inputs_json} => to_binary(&query::verify_proof_json(deps, vk_raw, proof_raw, public_inputs_json)?)
+        QueryMsg::VerifyProofJson {vk_raw, proof_raw, public_inputs} => to_binary(&query::verify_proof_json(deps, vk_raw, proof_raw, public_inputs)?)
     }
 }
 
 pub mod query { 
+
+    use contract_auxiliaries::drg::stacked::verifier_params::PublicInputs;
 
     use super::*;
     pub fn verify_proof_json(
         deps: Deps, 
         vk_raw: Vec<u8>,
         proof_raw: Vec<u8>,
-        public_inputs_json: String,
+        public_inputs: PublicInputs<PoseidonDomain, Sha256Domain>,
     ) -> StdResult<bool>
     {
         let vk = deserialize_verifying_key(&vk_raw).unwrap();
         let proof = deserialize_proof(&proof_raw).unwrap();
-        let public_inputs = serde_json::from_str(&public_inputs_json).unwrap();
-        let setup_params_json = SETUP_PARAMS.load(deps.storage).unwrap();
-        let setup_params = serde_json::from_str(&setup_params_json).unwrap();
+        let setup_params = SETUP_PARAMS.load(deps.storage).unwrap();
         let public_params = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::setup(&setup_params).unwrap();
         let verifier = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::new(&vk);
         let verified = verifier.verify(
