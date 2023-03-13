@@ -73,9 +73,9 @@ impl<H: Domain, G: Domain> VerifierStackedDrg<H, G> {
 
     pub fn setup(sp: &SetupParams) -> Result<PublicParams<H>> {
         let graph = VerifierStackedBucketGraph::<H>::new_stacked(
-            sp.nodes,
-            sp.degree,
-            sp.expansion_degree,
+            sp.nodes as usize,
+            sp.degree as usize,
+            sp.expansion_degree as usize,
             sp.porep_id,
             sp.api_version,
         )?;

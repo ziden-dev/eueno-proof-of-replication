@@ -1,28 +1,29 @@
 use crate::domain::Domain;
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct LayerChallenges {
     /// How many layers we are generating challenges for.
-    layers: usize,
+    layers: u64,
     /// The maximum count of challenges
-    max_count: usize,
+    max_count: u64,
 }
 
 impl LayerChallenges {
     pub const fn new(layers: usize, max_count: usize) -> Self {
-        LayerChallenges { layers, max_count }
+        LayerChallenges { layers: layers as u64, max_count: max_count as u64 }
     }
 
     pub fn layers(&self) -> usize {
-        self.layers
+        self.layers as usize
     }
 
     pub fn challenges_count_all(&self) -> usize {
-        self.max_count
+        self.max_count as usize
     }
 
     /// Derive all challenges.

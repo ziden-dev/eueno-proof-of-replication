@@ -1,6 +1,7 @@
-use serde::Deserialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Eq, PartialEq, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Deserialize, Debug, Serialize, JsonSchema)]
 pub enum ApiVersion {
     V1_0_0,
     V1_1_0,

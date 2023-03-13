@@ -3,21 +3,22 @@ use crate::{
     utils::ApiVersion,
     domain::Domain
 };
+use schemars::JsonSchema;
 use serde::{Serialize, Deserialize};
 
 use super::challenges::LayerChallenges;
 
 use super::verifier_graph::VerifierStackedBucketGraph;
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, JsonSchema)]
 pub struct SetupParams {
     // Number of nodes
-    pub nodes: usize,
+    pub nodes: u64,
 
     // Base degree of DRG
-    pub degree: usize,
+    pub degree: u64,
 
-    pub expansion_degree: usize,
+    pub expansion_degree: u64,
 
     pub porep_id: [u8; 32],
     pub layer_challenges: LayerChallenges,
@@ -62,7 +63,7 @@ impl<'a, D: Domain> From<&'a PublicParams<D>> for PublicParams<D>
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct PublicInputs<T: Domain, S: Domain> {
     #[serde(bound = "")]
     pub replica_id: T,
@@ -70,7 +71,7 @@ pub struct PublicInputs<T: Domain, S: Domain> {
     #[serde(bound = "")]
     pub tau: Option<Tau<T, S>>,
     /// Partition index
-    pub k: Option<usize>,
+    pub k: Option<u64>,
 }
 
 impl<T: Domain, S: Domain> PublicInputs<T, S> {
@@ -87,7 +88,7 @@ impl<T: Domain, S: Domain> PublicInputs<T, S> {
 }
 
 /// Tau for a single parition.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct Tau<D: Domain, E: Domain> {
     #[serde(bound = "")]
     pub comm_d: E,

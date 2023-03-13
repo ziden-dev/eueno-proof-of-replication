@@ -3,11 +3,12 @@ use std::panic::panic_any;
 use anyhow::ensure;
 use ark_bls12_381::Fr;
 use ark_ff::{PrimeField, BigInteger};
+use schemars::JsonSchema;
 use serde::{Serialize, Deserialize};
 
 use super::{Domain, Element};
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct Sha256Domain(pub [u8; 32]);
 
 impl AsRef<Sha256Domain> for Sha256Domain {

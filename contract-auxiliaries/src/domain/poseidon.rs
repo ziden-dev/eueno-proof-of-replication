@@ -3,12 +3,13 @@ use std::{panic::panic_any, cmp::Ordering};
 use anyhow::ensure;
 use ark_bls12_381::Fr;
 use ark_ff::{PrimeField, BigInteger};
+use schemars::JsonSchema;
 use serde::{Serialize, Deserialize};
 
 use super::{Domain, Element};
 
 
-#[derive(Default, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct PoseidonDomain(pub [u8; 32]);
 
 impl AsRef<PoseidonDomain> for PoseidonDomain {
