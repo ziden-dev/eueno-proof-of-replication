@@ -136,9 +136,9 @@ fn test_generate_public_inputs<Tree: 'static + MerkleTreeTrait>() {
 
     let verifier_layer_challenge = VerifierLayerChallenges::new(num_layers, 1);
     let verifier_setup_params = VerifierSetupParams {
-        nodes,
-        degree,
-        expansion_degree,
+        nodes: nodes as u64,
+        degree: degree as u64,
+        expansion_degree: expansion_degree as u64,
         porep_id: arbitrary_porep_id,
         layer_challenges: verifier_layer_challenge,
         api_version: VerifierApiVersion::V1_1_0,

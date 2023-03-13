@@ -83,7 +83,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::VerifyProofJson {
             proof_raw,
             public_inputs,
-        } => to_binary(&query::verify_proof_json(
+        } => to_binary(&query::verify_proof(
             deps,
             proof_raw,
             public_inputs,
@@ -98,7 +98,7 @@ pub mod query {
     use crate::state::VK_RAW;
 
     use super::*;
-    pub fn verify_proof_json(
+    pub fn verify_proof(
         deps: Deps,
         proof_raw: Vec<u8>,
         public_inputs: PublicInputs<PoseidonDomain, Sha256Domain>,
