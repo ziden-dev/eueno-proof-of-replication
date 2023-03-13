@@ -5,14 +5,14 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{SETUP_PARAMS, OWNER};
-use contract_auxiliaries::deserializer::{deserialize_verifying_key, deserialize_proof};
-use contract_auxiliaries::drg::stacked::VerifierStackedDrg;
+use crate::state::{OWNER, SETUP_PARAMS};
+use contract_auxiliaries::deserializer::{deserialize_proof, deserialize_verifying_key};
 use contract_auxiliaries::domain::{poseidon::PoseidonDomain, sha256::Sha256Domain};
+use contract_auxiliaries::drg::stacked::VerifierStackedDrg;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "stacked-drg";
-const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION"); 
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -34,7 +34,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SetSetupParams {setup_params} => execute::set_setup_params(deps, info, setup_params)
+        ExecuteMsg::SetSetupParams { setup_params } => {
+            execute::set_setup_params(deps, info, setup_params)
+        }
+        ExecuteMsg::SetVkRaw { vk_raw } => {
+            execute::set_vk_raw(deps, info, vk_raw)
+        },
     }
 }
 
@@ -42,14 +47,32 @@ pub mod execute {
 
     use contract_auxiliaries::drg::stacked::VerifierSetupParams;
 
+    use crate::state::VK_RAW;
+
     use super::*;
-    pub fn set_setup_params(deps: DepsMut, info: MessageInfo, setup_params: VerifierSetupParams) -> Result<Response, ContractError>{
+    pub fn set_setup_params(
+        deps: DepsMut,
+        info: MessageInfo,
+        setup_params: VerifierSetupParams,
+    ) -> Result<Response, ContractError> {
         if info.sender == OWNER.load(deps.storage).unwrap() {
             SETUP_PARAMS.save(deps.storage, &setup_params)?;
             Ok(Response::default())
+        } else {
+            Err(ContractError::Unauthorized {})
         }
-        else {
-            Err(ContractError::Unauthorized{})
+    }
+
+    pub fn set_vk_raw(
+        deps: DepsMut,
+        info: MessageInfo,
+        vk_raw: Vec<u8>,
+    ) -> Result<Response, ContractError> {
+        if info.sender == OWNER.load(deps.storage).unwrap() {
+            VK_RAW.save(deps.storage, &vk_raw)?;
+            Ok(Response::default())
+        } else {
+            Err(ContractError::Unauthorized {})
         }
     }
 }
@@ -57,36 +80,46 @@ pub mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::VerifyProofJson {vk_raw, proof_raw, public_inputs} => to_binary(&query::verify_proof_json(deps, vk_raw, proof_raw, public_inputs)?)
+        QueryMsg::VerifyProofJson {
+            proof_raw,
+            public_inputs,
+        } => to_binary(&query::verify_proof_json(
+            deps,
+            proof_raw,
+            public_inputs,
+        )?),
     }
 }
 
-pub mod query { 
+pub mod query {
 
     use contract_auxiliaries::drg::stacked::verifier_params::PublicInputs;
 
+    use crate::state::VK_RAW;
+
     use super::*;
     pub fn verify_proof_json(
-        deps: Deps, 
-        vk_raw: Vec<u8>,
+        deps: Deps,
         proof_raw: Vec<u8>,
         public_inputs: PublicInputs<PoseidonDomain, Sha256Domain>,
-    ) -> StdResult<bool>
-    {
+    ) -> StdResult<bool> {
+        let vk_raw = VK_RAW.load(deps.storage).unwrap();
         let vk = deserialize_verifying_key(&vk_raw).unwrap();
         let proof = deserialize_proof(&proof_raw).unwrap();
         let setup_params = SETUP_PARAMS.load(deps.storage).unwrap();
-        let public_params = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::setup(&setup_params).unwrap();
+        let public_params =
+            VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::setup(&setup_params).unwrap();
         let verifier = VerifierStackedDrg::<PoseidonDomain, Sha256Domain>::new(&vk);
-        let verified = verifier.verify(
-            &public_params,
-            &public_inputs,
-            &proof,
-            &contract_auxiliaries::drg::stacked::challenges::ChallengeRequirements {
-                minimum_challenges: 1,
-            },
-        ).unwrap();
+        let verified = verifier
+            .verify(
+                &public_params,
+                &public_inputs,
+                &proof,
+                &contract_auxiliaries::drg::stacked::challenges::ChallengeRequirements {
+                    minimum_challenges: 1,
+                },
+            )
+            .unwrap();
         Ok(verified)
     }
 }
-
